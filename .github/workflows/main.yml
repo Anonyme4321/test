@@ -68,4 +68,4 @@ jobs:
            
          - name: Print nice message on completion of CD Pipeline
            run : echo "CD Pipeline part finished successfully"  
-        
+        #ok
