@@ -12,7 +12,7 @@ env:
   EB_APPLICATION_NAME       : "Myflaskgit"
   EB_ENVIRONMENT_NAME       : "Myflaskgit-env"
   DEPLOY_PACKAGE_NAME       : "flask-app-${{ github.sha }}.zip"
-  AWS_REGION_NAME           : "us-west-2"
+  AWS_REGION_NAME           : "us-east-1"
 
 on: 
   push:
