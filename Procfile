@@ -1,1 +1,0 @@
-web: guicorn application:app

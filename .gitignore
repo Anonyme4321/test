@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# Données et modèles : jamais dans git
+data/
+runs/
+weights/
+*.pt
+*.pth
+*.ckpt
+*.onnx
+
+# Notebooks : sorties
+.ipynb_checkpoints/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

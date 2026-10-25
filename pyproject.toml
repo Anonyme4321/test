@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rail-diagram-reader"
+version = "0.1.0"
+description = "Lecture automatique de schémas de signalisation ferroviaire : synthèse de données, détection de symboles, OCR, association."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+    "numpy>=1.26",
+    "pillow>=10.1",
+]
+
+[project.optional-dependencies]
+train = [
+    "ultralytics>=8.3",
+]
+ocr = [
+    "paddleocr>=2.9",
+]
+dev = [
+    "pytest>=8",
+    "ruff>=0.6",
+]
+
+[project.scripts]
+rdr-synth = "diagram_reader.synth.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
