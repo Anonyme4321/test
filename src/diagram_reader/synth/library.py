@@ -32,6 +32,7 @@ class Prim:
     size: float = 12.0  # hauteur de police (px, échelle 1)
     bold: bool = False
     in_bbox: bool = True  # participe à la boîte englobante du symbole
+    group: str = "default"  # textes d'un même groupe : ordre de lecture conservé au retournement
 
 
 @dataclass(frozen=True)
@@ -50,7 +51,7 @@ CM_T = VectorSymbol(
     cls="cm",
     description=(
         "Commutateur de limitation de vitesse (Cm T 160). Carré avec « Cm T » et « 160 », "
-        "petit mât vers la voie, nom du commutateur (ex. 9,9) au-dessus."
+        "petit mât vers la voie, nom du commutateur (ex. 9,9 ou 9,9bis) du côté opposé à la voie."
     ),
     prims=(
         # mât : de la voie (0,0) jusqu'au bas du carré
@@ -58,12 +59,12 @@ CM_T = VectorSymbol(
         # carré 44 × 44 au-dessus du mât
         Prim("rect", ((-22, -56), (22, -12)), width=2.5),
         # textes fixes, deux lignes
-        Prim("text", ((0, -44),), text="Cm T", size=13),
-        Prim("text", ((0, -25),), text="160", size=13),
-        # nom variable au-dessus du carré ; hors boîte du symbole (texte à associer)
-        Prim("text", ((0, -66),), slot="name", role="cm_name", size=16, in_bbox=False),
+        Prim("text", ((0, -44),), text="Cm T", size=13, group="box"),
+        Prim("text", ((0, -25),), text="160", size=13, group="box"),
+        # nom variable du côté opposé à la voie ; hors boîte du symbole (texte à associer)
+        Prim("text", ((0, -66),), slot="name", role="cm_name", size=16, in_bbox=False, group="name"),
     ),
-    slots={"name": "numéro du commutateur, format « c,c » (ex. 9,9)"},
+    slots={"name": "numéro du commutateur, « c,c » ou « c,c^bis » (bis en exposant)"},
 )
 
 LIBRARY: dict[str, VectorSymbol] = {s.name: s for s in (CM_T,)}

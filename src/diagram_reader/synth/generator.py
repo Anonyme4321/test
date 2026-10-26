@@ -325,7 +325,7 @@ def generate_plan(cfg: GenerationConfig, rng: random.Random | None = None) -> tu
             est = (est[0], min(est[1], est[3]), est[2], max(est[1], est[3]))
             if _overlaps(est, occupied):
                 continue
-            cm_name = f"{rng.randint(1, 19)},{rng.randint(1, 9)}"
+            cm_name = f"{rng.randint(1, 19)},{rng.randint(1, 9)}" + ("^bis" if rng.random() < 0.2 else "")
             box, cm_texts = d.render(LIBRARY["cm_t"], x, y, {"name": cm_name}, above=above)
             add("cm", box)
             for content, tb, role in cm_texts:

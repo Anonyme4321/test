@@ -80,6 +80,19 @@ class SymbolDrawer:
         self.image.paste(layer, (px, py), mask=Image.eval(layer, lambda v: 255 - v))
         return (float(px), float(py), float(px + lw), float(py + lh))
 
+    def text_sup(
+        self, cx: float, cy: float, main: str, sup: str, size: float, bold: bool = False
+    ) -> BBox:
+        """Texte principal suivi d'un exposant plus petit ; l'ensemble est centré en (cx, cy)."""
+        f_main = load_font(int(size), bold=bold)
+        f_sup = load_font(int(size * 0.62), bold=bold)
+        w_main = self.draw.textlength(main, font=f_main)
+        w_sup = self.draw.textlength(sup, font=f_sup)
+        x0 = cx - (w_main + w_sup) / 2
+        b1 = self.text(x0, cy, main, size, bold=bold, anchor="lm")
+        b2 = self.text(x0 + w_main, cy - size * 0.35, sup, size * 0.62, bold=bold, anchor="lm")
+        return _union(b1, b2)
+
     # ------------------------------------------------- symboles de bibliothèque
     def render(
         self,
@@ -105,9 +118,22 @@ class SymbolDrawer:
         def T(p: tuple[float, float]) -> tuple[float, float]:
             return (x + sx * st.s(p[0]), y + sy * st.s(p[1]))
 
+        # Positions des textes : au retournement, chaque groupe de textes occupe les
+        # mêmes emplacements (retournés) mais garde son ordre de lecture haut → bas.
+        text_pos: dict[int, tuple[float, float]] = {}
+        groups: dict[str, list[int]] = {}
+        for i, pr in enumerate(sym.prims):
+            if pr.kind == "text":
+                groups.setdefault(pr.group, []).append(i)
+        for idxs in groups.values():
+            order = sorted(idxs, key=lambda i: sym.prims[i].pts[0][1])  # haut → bas (repère local)
+            ys = sorted(T(sym.prims[i].pts[0])[1] for i in idxs)  # emplacements image, haut → bas
+            for i, yy in zip(order, ys):
+                text_pos[i] = (T(sym.prims[i].pts[0])[0], yy)
+
         boxes: list[BBox] = []
         texts: list[tuple[str, BBox, str]] = []
-        for pr in sym.prims:
+        for i, pr in enumerate(sym.prims):
             width = st.line_width if pr.width is None else max(1, round(st.s(pr.width)))
             if pr.kind == "line":
                 pts = [T(p) for p in pr.pts]
@@ -139,8 +165,13 @@ class SymbolDrawer:
                 box = (min(xs), min(ys), max(xs), max(ys))
             elif pr.kind == "text":
                 content = pr.text if pr.slot is None else slots[pr.slot]
-                cx, cy = T(pr.pts[0])
-                box = self.text(cx, cy, content, st.s(pr.size), bold=pr.bold, anchor="mm")
+                cx, cy = text_pos[i]
+                if "^" in content:  # "9,9^bis" → 9,9 suivi de « bis » en exposant
+                    main, sup = content.split("^", 1)
+                    box = self.text_sup(cx, cy, main, sup, st.s(pr.size), bold=pr.bold)
+                    content = main + sup
+                else:
+                    box = self.text(cx, cy, content, st.s(pr.size), bold=pr.bold, anchor="mm")
                 texts.append((content, box, pr.role))
             else:  # pragma: no cover
                 raise ValueError(f"primitive inconnue : {pr.kind}")

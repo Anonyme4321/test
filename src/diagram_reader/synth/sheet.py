@@ -36,7 +36,11 @@ def _draw_all(scale: float = 2.0) -> Image.Image:
     def _lib(sym):
         return lambda d, x, y: d.render(sym, x, y, dict.fromkeys(sym.slots, "9,9"))[0]
 
+    def _lib_below(sym):
+        return lambda d, x, y: d.render(sym, x, y, dict.fromkeys(sym.slots, "9,9^bis"), above=False)[0]
+
     library = [(sym.name, _lib(sym)) for sym in LIBRARY.values()]
+    library += [(sym.name + " (dessous)", _lib_below(sym)) for sym in LIBRARY.values()]
     items = coded + library
     cols = 5
     rows = (len(items) + cols - 1) // cols
@@ -45,7 +49,7 @@ def _draw_all(scale: float = 2.0) -> Image.Image:
     overlay = ImageDraw.Draw(img)
     for i, (name, fn) in enumerate(items):
         cx = (i % cols) * CELL + CELL // 2
-        cy = (i // cols) * CELL + CELL * 0.62
+        cy = (i // cols) * CELL + CELL * (0.30 if "(dessous)" in name else 0.62)
         # bout de voie
         d.draw.line([(cx - 80, cy), (cx + 80, cy)], fill=0, width=style.track_width)
         box = fn(d, cx, cy)
