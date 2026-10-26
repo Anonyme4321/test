@@ -6,7 +6,7 @@ from diagram_reader.synth import CLASS_IDS, CLASSES, GenerationConfig, generate_
 
 def test_classes_are_unique_and_indexed():
     assert len({c.name for c in CLASSES}) == len(CLASSES)
-    assert CLASS_IDS["arrow"] == 0 and CLASS_IDS["joint"] == len(CLASSES) - 1
+    assert CLASS_IDS["arrow"] == 0 and sorted(CLASS_IDS.values()) == list(range(len(CLASSES)))
 
 
 def test_generate_plan_is_deterministic():

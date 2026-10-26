@@ -23,6 +23,7 @@ CLASSES: tuple[SymbolClass, ...] = (
     SymbolClass("pd", "Pédale : détecteur de passage"),
     SymbolClass("ce", "Compteur d'essieux"),
     SymbolClass("joint", "Joint isolant délimitant une zone de détection"),
+    SymbolClass("cm", "Commutateur de limitation de vitesse (Cm T 160)"),
 )
 
 CLASS_NAMES: tuple[str, ...] = tuple(c.name for c in CLASSES)

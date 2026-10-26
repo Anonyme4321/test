@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from PIL import Image, ImageDraw
 
 from diagram_reader.synth.fonts import load_font
+from diagram_reader.synth.library import VectorSymbol
 
 BBox = tuple[float, float, float, float]
 
@@ -78,6 +79,74 @@ class SymbolDrawer:
         px, py = round(x - lw / 2), round(y - lh / 2)
         self.image.paste(layer, (px, py), mask=Image.eval(layer, lambda v: 255 - v))
         return (float(px), float(py), float(px + lw), float(py + lh))
+
+    # ------------------------------------------------- symboles de bibliothèque
+    def render(
+        self,
+        sym: VectorSymbol,
+        x: float,
+        y: float,
+        slots: dict[str, str] | None = None,
+        above: bool = True,
+        mirror: bool = False,
+    ) -> tuple[BBox, list[tuple[str, BBox, str]]]:
+        """Dessine un symbole vectoriel attaché en (x, y).
+
+        `above=False` retourne le symbole sous la voie (symétrie verticale) ;
+        `mirror=True` applique une symétrie horizontale (sens de circulation).
+        Les textes ne sont jamais retournés : ils restent lisibles.
+        Renvoie (boîte du symbole, [(texte, boîte, rôle), ...]).
+        """
+        st = self.style
+        slots = slots or {}
+        sy = 1.0 if above else -1.0
+        sx = -1.0 if mirror else 1.0
+
+        def T(p: tuple[float, float]) -> tuple[float, float]:
+            return (x + sx * st.s(p[0]), y + sy * st.s(p[1]))
+
+        boxes: list[BBox] = []
+        texts: list[tuple[str, BBox, str]] = []
+        for pr in sym.prims:
+            width = st.line_width if pr.width is None else max(1, round(st.s(pr.width)))
+            if pr.kind == "line":
+                pts = [T(p) for p in pr.pts]
+                self.draw.line(pts, fill=st.ink, width=width)
+                xs, ys = zip(*pts)
+                box: BBox = (min(xs), min(ys), max(xs), max(ys))
+            elif pr.kind == "rect":
+                (x1, y1), (x2, y2) = T(pr.pts[0]), T(pr.pts[1])
+                box = (min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2))
+                if pr.fill:
+                    self.draw.rectangle(box, fill=st.ink)
+                else:
+                    self.draw.rectangle(box, fill=255, outline=st.ink, width=width)
+            elif pr.kind == "circle":
+                cx, cy = T(pr.pts[0])
+                r = st.s(pr.r)
+                box = (cx - r, cy - r, cx + r, cy + r)
+                if pr.fill:
+                    self.draw.ellipse(box, fill=st.ink)
+                else:
+                    self.draw.ellipse(box, fill=255, outline=st.ink, width=width)
+            elif pr.kind == "polygon":
+                pts = [T(p) for p in pr.pts]
+                if pr.fill:
+                    self.draw.polygon(pts, fill=st.ink)
+                else:
+                    self.draw.line([*pts, pts[0]], fill=st.ink, width=width)
+                xs, ys = zip(*pts)
+                box = (min(xs), min(ys), max(xs), max(ys))
+            elif pr.kind == "text":
+                content = pr.text if pr.slot is None else slots[pr.slot]
+                cx, cy = T(pr.pts[0])
+                box = self.text(cx, cy, content, st.s(pr.size), bold=pr.bold, anchor="mm")
+                texts.append((content, box, pr.role))
+            else:  # pragma: no cover
+                raise ValueError(f"primitive inconnue : {pr.kind}")
+            if pr.in_bbox:
+                boxes.append(_pad(box, width / 2))
+        return _pad(_union(*boxes), st.s(2)), texts
 
     # --------------------------------------------------------------- symboles
     def joint(self, x: float, y: float) -> BBox:

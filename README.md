@@ -23,7 +23,7 @@ PDF / image ──► tuilage ──► détection de symboles (RT-DETR, Ultraly
 
 | Étape | État | Module |
 |---|---|---|
-| Synthèse de données annotées | ✅ v0.1 | `diagram_reader.synth` |
+| Synthèse de données annotées | ✅ v0.2 | `diagram_reader.synth` |
 | Tuilage / recombinaison | à faire | `diagram_reader.tiling` |
 | Détection de symboles | à faire | `diagram_reader.detect` |
 | OCR | à faire | `diagram_reader.ocr` |
@@ -43,6 +43,7 @@ PDF / image ──► tuilage ──► détection de symboles (RT-DETR, Ultraly
 | 6 | `pd` | pédale de détection |
 | 7 | `ce` | compteur d'essieux |
 | 8 | `joint` | joint isolant (limite de zone) |
+| 9 | `cm` | commutateur de limitation de vitesse (Cm T 160) |
 
 ## Installation
 
@@ -85,6 +86,24 @@ cartouches horizontal ou vertical, fond et bruit « scan ».
 Aperçu (`--preview`, boîtes rouges = symboles, bleues = textes) :
 
 ![aperçu](docs/preview.jpg)
+
+## Bibliothèque de symboles
+
+Les symboles ajoutés depuis les relevés de plans réels sont décrits de façon
+**déclarative** dans `synth/library.py` : primitives (rectangle, ligne, cercle,
+polygone, texte) dans un repère local dont l'origine est le point d'attache sur la
+voie, avec des textes fixes et des *slots* de texte variable (le nom du commutateur,
+par exemple), chacun portant un rôle d'annotation.
+
+```bash
+python -m diagram_reader.synth.sheet      --out docs/symbols.png   # planche de contrôle
+python -m diagram_reader.synth.dxf_export --out docs/symbols.dxf   # export CAO (ezdxf)
+```
+
+![planche des symboles](docs/symbols.png)
+
+Pour ajouter un symbole : une entrée `VectorSymbol` dans `library.py`, une ligne dans
+`classes.py` si c'est une nouvelle classe, et son placement dans `generator.py`.
 
 ## Principes
 

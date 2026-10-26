@@ -22,6 +22,7 @@ from PIL import Image, ImageFilter
 
 from diagram_reader.synth.classes import CLASS_IDS
 from diagram_reader.synth.fonts import load_font
+from diagram_reader.synth.library import LIBRARY
 from diagram_reader.synth.symbols import BBox, Style, SymbolDrawer
 
 INDICATIONS = ["C", "S", "RR", "A", "VL", "M", "R", "D", "G"]
@@ -38,7 +39,7 @@ class Annotation:
 class TextAnnotation:
     text: str
     bbox: BBox
-    role: str  # "signal_name" | "indication" | "pk" | "zone" | "track_name" | "title"
+    role: str  # signal_name | indication | pk | zone | track_name | title | cm_name | fixed
 
 
 @dataclass
@@ -309,6 +310,26 @@ def generate_plan(cfg: GenerationConfig, rng: random.Random | None = None) -> tu
             else:
                 box = d.deto(x, y, above=rng.random() < 0.5)
             add(kind, box)
+
+        # commutateurs de limitation de vitesse (bibliothèque vectorielle)
+        for _ in range(rng.choice([0, 0, 1, 1, 2])):
+            if "cm" in cfg.exclude:
+                break
+            x = _free_x(rng, x_left, x_right, used_x, style.s(70))
+            if x is None:
+                continue
+            y = tr.y_at(x)
+            above = (tr.direction == 1) if rng.random() < 0.8 else rng.random() < 0.5
+            sy = -1 if above else 1
+            est = (x - style.s(26), y + sy * style.s(80), x + style.s(26), y)
+            est = (est[0], min(est[1], est[3]), est[2], max(est[1], est[3]))
+            if _overlaps(est, occupied):
+                continue
+            cm_name = f"{rng.randint(1, 19)},{rng.randint(1, 9)}"
+            box, cm_texts = d.render(LIBRARY["cm_t"], x, y, {"name": cm_name}, above=above)
+            add("cm", box)
+            for content, tb, role in cm_texts:
+                add_text(role, content, tb)
 
         # noms de zone : du côté opposé aux signaux, uniquement si la place est libre
         bounds = [x_left + style.s(200), *cuts, x_right - style.s(40)]
