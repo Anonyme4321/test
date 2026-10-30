@@ -59,7 +59,7 @@ def convert_with_oda(oda: Path, src_dir: Path, dst_dir: Path, version: str, recu
     dst_dir.mkdir(parents=True, exist_ok=True)
     cmd = [str(oda), str(src_dir), str(dst_dir), version, "DXF", "1" if recursive else "0", "1", "*.DWG"]
     print("ODA :", " ".join(cmd))
-    res = subprocess.run(cmd, capture_output=True, text=True)
+    res = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if res.returncode != 0:
         print(res.stdout, res.stderr, file=sys.stderr)
     return res.returncode
@@ -77,7 +77,7 @@ def convert_with_accore(accore: Path, dwg: Path, dxf: Path, version: str) -> boo
         scr = f.name
     try:
         res = subprocess.run([str(accore), "/i", str(dwg), "/s", scr, "/l", "fr-FR"],
-                             capture_output=True, text=True, timeout=300)
+                             capture_output=True, text=True, timeout=300, check=False)
         ok = dxf.exists()
         if not ok:
             print(res.stdout[-800:], res.stderr[-800:], file=sys.stderr)
