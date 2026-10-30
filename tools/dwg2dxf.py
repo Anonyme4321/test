@@ -70,13 +70,14 @@ def convert_with_accore(accore: Path, dwg: Path, dxf: Path, version: str) -> boo
     ver_code = {"ACAD2000": "2000", "ACAD2004": "2004", "ACAD2007": "2007",
                 "ACAD2010": "2010", "ACAD2013": "2013", "ACAD2018": "2018"}[version]
     dxf.parent.mkdir(parents=True, exist_ok=True)
-    script = f'FILEDIA 0\nSAVEAS DXF 16 V{ver_code} "{dxf.as_posix()}"\nQUIT Y\n'
+    # Préfixe « _ » : noms de commandes et mots-clés indépendants de la langue d'AutoCAD.
+    script = f'_FILEDIA 0\n_SAVEAS _DXF 16 {ver_code} "{dxf.as_posix()}"\n_QUIT _Y\n'
     with tempfile.NamedTemporaryFile("w", suffix=".scr", delete=False, encoding="ascii",
                                      errors="replace") as f:
         f.write(script)
         scr = f.name
     try:
-        res = subprocess.run([str(accore), "/i", str(dwg), "/s", scr, "/l", "fr-FR"],
+        res = subprocess.run([str(accore), "/i", str(dwg), "/s", scr],
                              capture_output=True, text=True, timeout=300, check=False)
         ok = dxf.exists()
         if not ok:
