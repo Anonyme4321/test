@@ -71,7 +71,9 @@ def convert_with_accore(accore: Path, dwg: Path, dxf: Path, version: str) -> boo
                 "ACAD2010": "2010", "ACAD2013": "2013", "ACAD2018": "2018"}[version]
     dxf.parent.mkdir(parents=True, exist_ok=True)
     # Préfixe « _ » : noms de commandes et mots-clés indépendants de la langue d'AutoCAD.
-    script = f'_FILEDIA 0\n_SAVEAS _DXF 16 {ver_code} "{dxf.as_posix()}"\n_QUIT _Y\n'
+    # Enchaînement des invites de SAVEAS DXF : précision/options → (Version → valeur →
+    # retour à l'invite précision) → chemin. On passe par l'option _V pour la version.
+    script = f'_FILEDIA 0\n_SAVEAS _DXF _V {ver_code} 16 "{dxf.as_posix()}"\n_QUIT _Y\n'
     with tempfile.NamedTemporaryFile("w", suffix=".scr", delete=False, encoding="ascii",
                                      errors="replace") as f:
         f.write(script)
