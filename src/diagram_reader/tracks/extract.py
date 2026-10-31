@@ -23,7 +23,8 @@ class ExtractConfig:
     thick_ratio: float = 1.8  # repli auto : voie = thick_ratio × demi-largeur médiane des traits
     auto_min_extent_factor: float = 40.0  # composante « étendue » : diagonale ≥ facteur × demi-largeur
     auto_cover_frac: float = 0.4  # … et leur étendue cumulée ≥ fraction de la largeur d'image
-    auto_margin: float = 0.8  # seuil retenu = 80 % de la demi-largeur trouvée (anticrénelage)
+    auto_family_jump: float = 1.5  # une famille plus fine est retenue si elle accroît la couverture d'autant
+    auto_margin: float = 0.85  # seuil = 85 % de la demi-largeur de la famille la plus fine retenue
     # nettoyage du masque
     min_component_len: float = 40.0  # composantes dont le squelette est plus court (px) : ignorées
     max_width_ratio: float = 6.0  # aplats : demi-largeur > ratio × celle des voies, retirés (une convergence de voies reste bien en dessous)
@@ -117,17 +118,21 @@ def auto_half_width(ink: np.ndarray, dist: np.ndarray, cfg: ExtractConfig) -> fl
     hi = float(np.percentile(hws, 99.5))
     w = ink.shape[1]
     best = None
+    best_cov = 0.0
     t = hi
     while t >= lo:
         core = (dist >= t).astype(np.uint8)
         n, labels, stats, _ = cv2.connectedComponentsWithStats(core, connectivity=8)
         del labels, core
+        cov = 0.0
         if n > 1:
             ext = np.hypot(stats[1:, cv2.CC_STAT_WIDTH], stats[1:, cv2.CC_STAT_HEIGHT])
-            long_ext = ext[ext >= cfg.auto_min_extent_factor * t].sum()
-            if long_ext >= cfg.auto_cover_frac * w:
-                best = t
-                break
+            cov = float(ext[ext >= cfg.auto_min_extent_factor * t].sum() / w)
+        if best is None:
+            if cov >= cfg.auto_cover_frac:
+                best, best_cov = t, cov  # famille la plus épaisse qui traverse le plan
+        elif cov >= cfg.auto_family_jump * best_cov:
+            best, best_cov = t, cov  # une famille de voies plus fines apparaît : on l'inclut
         t -= 0.25
     if best is None:
         return max(base * cfg.thick_ratio, base + 1.0)
