@@ -24,6 +24,7 @@ PDF / image ──► tuilage ──► détection de symboles (RT-DETR, Ultraly
 | Étape | État | Module |
 |---|---|---|
 | Synthèse de données annotées | ✅ v0.2 | `diagram_reader.synth` |
+| Extraction des voies (graphe) | ✅ v0.1 | `diagram_reader.tracks` |
 | Tuilage / recombinaison | à faire | `diagram_reader.tiling` |
 | Détection de symboles | à faire | `diagram_reader.detect` |
 | OCR | à faire | `diagram_reader.ocr` |
@@ -104,6 +105,39 @@ python -m diagram_reader.synth.dxf_export --out docs/symbols.dxf   # export CAO 
 
 Pour ajouter un symbole : une entrée `VectorSymbol` dans `library.py`, une ligne dans
 `classes.py` si c'est une nouvelle classe, et son placement dans `generator.py`.
+
+## Voies
+
+Les voies ne sont pas des objets à boîte englobante : ce sont des traits épais qui se
+divisent et fusionnent. `diagram_reader.tracks` en extrait un **graphe** (nœuds =
+extrémités et aiguilles, arêtes = segments de voie) à partir d'une image :
+
+1. binarisation (seuil adaptatif, scans inégaux) ;
+2. masque des traits épais : les voies sont les seuls traits larges qui *traversent* le
+   plan ; le seuil d'épaisseur est trouvé automatiquement sur ce critère ;
+3. squelette → graphe (via `skan`), élagage des barbules et petites boucles laissées par
+   les symboles collés à la voie, fusion des nœuds proches, suppression des composantes
+   trop courtes, pontage des coupures laissées par les cartouches posés sur la voie.
+
+Tous les seuils sont exprimés en **millimètres papier** et convertis en pixels via
+l'épaisseur mesurée des voies : le résultat ne dépend ni de la résolution du scan ni du
+format (feuille ou rouleau).
+
+```python
+import cv2
+from diagram_reader.tracks import extract_tracks
+img = cv2.imread("plan.png", cv2.IMREAD_GRAYSCALE)
+res = extract_tracks(img)
+res.graph.to_json()           # nœuds, arêtes (polylignes), longueurs
+cv2.imwrite("overlay.png", res.graph.draw(img))
+```
+
+### Vérité terrain et mesure
+
+Quand on dispose du DXF d'un plan, les voies y sont des polylignes à largeur constante :
+`tools/dxf_truth.py` rasterise le plan à un DPI de scan réaliste et produit le masque
+vrai des voies ; `python -m diagram_reader.tracks.eval` mesure précision/rappel du
+squelette et rappel des aiguilles. Les DXF et les rendus restent dans `data/`, hors git.
 
 ## Principes
 
