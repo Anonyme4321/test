@@ -31,6 +31,8 @@ from PIL import Image
 Image.MAX_IMAGE_PIXELS = None  # rouleaux de plusieurs mètres à 200 dpi
 
 matplotlib.use("Agg")
+import itertools
+
 import matplotlib.pyplot as plt
 
 
@@ -116,10 +118,43 @@ def render_track_mask(doc, ext, width_px: int, out: Path, min_width: float, min_
             "lineweights": sorted(stats.get("lineweights", set()))}
 
 
+def plan_extents(doc, min_width: float):
+    """Emprise du plan : celle des polylignes épaisses (les voies) avec une marge,
+    plutôt que celle de tout l'espace objet, souvent gonflée par une entité égarée."""
+    msp = doc.modelspace()
+    full = bbox.extents(msp, fast=True)
+    thick = [e for e in msp if e.dxftype() == "LWPOLYLINE"
+             and (e.dxf.const_width if e.dxf.hasattr("const_width") else 0.0) >= min_width]
+    if len(thick) < 3:
+        return full
+    # percentiles des sommets (pondérés par la longueur des segments) : une
+    # polyligne égarée loin du plan ne pèse rien
+    xs, ys, ws = [], [], []
+    for e in thick:
+        pts = [(q[0], q[1]) for q in e.get_points()]
+        for (x1, y1), (x2, y2) in itertools.pairwise(pts):
+            L = ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
+            xs += [x1, x2]
+            ys += [y1, y2]
+            ws += [L, L]
+    xs, ys, ws = np.array(xs), np.array(ys), np.array(ws)
+    order = np.argsort(xs)
+    cw = np.cumsum(ws[order]) / ws.sum()
+    x_lo, x_hi = xs[order][np.searchsorted(cw, 0.005)], xs[order][np.searchsorted(cw, 0.995)]
+    order = np.argsort(ys)
+    cw = np.cumsum(ws[order]) / ws.sum()
+    y_lo, y_hi = ys[order][np.searchsorted(cw, 0.005)], ys[order][np.searchsorted(cw, 0.995)]
+    from ezdxf.math import BoundingBox
+    ext = BoundingBox([(x_lo, y_lo), (x_hi, y_hi)])
+    mx, my = 0.08 * ext.size.x, max(1.5 * ext.size.y, 0.12 * ext.size.x)
+    grown = BoundingBox([(ext.extmin.x - mx, ext.extmin.y - my), (ext.extmax.x + mx, ext.extmax.y + my)])
+    return BoundingBox([(max(grown.extmin.x, full.extmin.x), max(grown.extmin.y, full.extmin.y)),
+                        (min(grown.extmax.x, full.extmax.x), min(grown.extmax.y, full.extmax.y))])
+
+
 def process(dxf: Path, out_dir: Path, width_px: int, min_width: float, min_lw: float) -> dict:
     doc = ezdxf.readfile(dxf)
-    msp = doc.modelspace()
-    ext = bbox.extents(msp, fast=True)
+    ext = plan_extents(doc, min_width)
     height_px = round(width_px * ext.size.y / ext.size.x)
     stem = dxf.stem
     render_plan(doc, ext, width_px, out_dir / f"{stem}.png")
@@ -157,7 +192,7 @@ def main(argv: list[str] | None = None) -> None:
         files = [f for f in files if f.stem in args.only]
     for f in files:
         if args.dpi > 0:
-            ext = bbox.extents(ezdxf.readfile(f).modelspace(), fast=True)
+            ext = plan_extents(ezdxf.readfile(f), args.min_width)
             width_px = round(ext.size.x / 25.4 * args.dpi)
             # garde-fou mémoire : les espaces objet qui empilent plusieurs planches
             # deviennent gigantesques ; on plafonne le nombre de pixels

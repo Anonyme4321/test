@@ -17,6 +17,7 @@ class ExtractConfig:
     # binarisation
     adaptive: bool = True  # seuil adaptatif (scans inégaux) plutôt qu'Otsu global
     block_size: int = 51
+    gap_close_px: int = 1  # fermeture des interstices ≤ 2·n px (voies en double trait)
     # épaisseur : seuil sur la demi-largeur (px). None = estimation automatique
     half_width_px: float | None = None
     thick_ratio: float = 1.8  # repli auto : voie = thick_ratio × demi-largeur médiane des traits
@@ -25,7 +26,7 @@ class ExtractConfig:
     auto_margin: float = 0.8  # seuil retenu = 80 % de la demi-largeur trouvée (anticrénelage)
     # nettoyage du masque
     min_component_len: float = 40.0  # composantes dont le squelette est plus court (px) : ignorées
-    max_width_ratio: float = 4.0  # aplats (largeur > ratio × voie) : ignorés
+    max_width_ratio: float = 6.0  # aplats : demi-largeur > ratio × celle des voies, retirés (une convergence de voies reste bien en dessous)
     close_px: int = 3  # fermeture pour recoller les petites coupures
     # graphe : seuils exprimés en mm « papier », convertis en px via l'épaisseur
     # mesurée des voies (track_width_mm sur le plan d'origine). Indépendant de la
@@ -64,7 +65,13 @@ def binarize(gray: np.ndarray, cfg: ExtractConfig) -> np.ndarray:
             ink = ink | otsu
     else:
         _, ink = cv2.threshold(gray, 0, 1, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-    return ink.astype(np.uint8)
+    ink = ink.astype(np.uint8)
+    if cfg.gap_close_px > 0:
+        # certaines voies sont dessinées en double trait séparé d'un filet blanc :
+        # on fond les interstices d'un ou deux pixels pour les mesurer comme un seul trait
+        k = cv2.getStructuringElement(cv2.MORPH_RECT, (2 * cfg.gap_close_px + 1,) * 2)
+        ink = cv2.morphologyEx(ink, cv2.MORPH_CLOSE, k)
+    return ink
 
 
 # ---------------------------------------------------------------- traits épais
@@ -147,21 +154,29 @@ def thick_mask(ink: np.ndarray, cfg: ExtractConfig) -> tuple[np.ndarray, float]:
         if np.array_equal(grown, mask):
             break
         mask = grown
-    del dist, core, allowed
+    del core, allowed
+    # aplats (points pleins, carrés noirs, hachures denses) : zones bien plus
+    # larges qu'une voie, retirées localement — jamais par composante entière,
+    # car une voie est presque toujours connectée à quelque chose de plein
+    blob_hw = cfg.max_width_ratio * hw
+    blob = (dist >= blob_hw).astype(np.uint8)
+    if blob.any():
+        for _ in range(int(np.ceil(blob_hw)) + 2):
+            grown = cv2.dilate(blob, kernel) & mask
+            if np.array_equal(grown, blob):
+                break
+            blob = grown
+        mask &= 1 - blob
+    del dist, blob
     if cfg.close_px > 0:
         k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (cfg.close_px * 2 + 1,) * 2)
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, k)
-    # filtrage des composantes : trop courtes (symboles pleins, lettres) ou trop
-    # larges (aplats, hachures denses) → ce ne sont pas des voies
+    # composantes trop courtes (restes de symboles, lettres) : ignorées
     lab, n = ndi.label(mask, structure=np.ones((3, 3)))
     if n:
         skel = skeletonize(mask.astype(bool))
         lengths = ndi.sum(skel, lab, index=range(1, n + 1))
-        areas = ndi.sum(mask, lab, index=range(1, n + 1))
-        keep = np.zeros(n + 1, bool)
-        for i, (L, A) in enumerate(zip(lengths, areas), start=1):
-            width = A / max(L, 1.0)
-            keep[i] = L >= cfg.min_component_len and width <= cfg.max_width_ratio * 2 * hw
+        keep = np.concatenate([[False], lengths >= cfg.min_component_len])
         mask = keep[lab].astype(np.uint8)
         del lab, skel
     return mask, hw
