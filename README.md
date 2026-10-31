@@ -139,6 +139,15 @@ Quand on dispose du DXF d'un plan, les voies y sont des polylignes à largeur co
 vrai des voies ; `python -m diagram_reader.tracks.eval` mesure précision/rappel du
 squelette et rappel des aiguilles. Les DXF et les rendus restent dans `data/`, hors git.
 
+### Résultats (12 plans réels rasterisés à 200 dpi depuis leur DXF)
+
+Squelette de voie, tolérance 8 px (≈ 1 mm) : **précision 94,9 %, rappel 93,8 %** en
+moyenne ; 8 plans sur 12 au-dessus de 95 % sur les deux. Les cas en dessous sont
+documentés : voies dessinées en double trait fin avec un filet blanc (DANGEAU),
+emprise multi-planches (marignier), style géographique courbe (RENNES, précision 92 %).
+Le rappel des aiguilles n'est pas encore une métrique fiable (la vérité terrain compte
+aussi les croisements de traits épais non ferroviaires).
+
 ## Principes
 
 - **Pas de données réelles dans le dépôt** (`data/`, poids et checkpoints sont ignorés par git).
