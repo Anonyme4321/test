@@ -5,7 +5,14 @@ import numpy as np
 
 from diagram_reader.synth import GenerationConfig, generate_plan
 from diagram_reader.tracks import ExtractConfig, extract_tracks
-from diagram_reader.tracks.graph import Edge, Node, TrackGraph, bridge_gaps, prune, skeleton_to_graph
+from diagram_reader.tracks.graph import (
+    Edge,
+    Node,
+    TrackGraph,
+    bridge_gaps,
+    prune,
+    skeleton_to_graph,
+)
 
 
 def _line_image(w=1200, h=400):
